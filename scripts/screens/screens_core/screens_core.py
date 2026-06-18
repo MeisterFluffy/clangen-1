@@ -121,6 +121,14 @@ def rebuild_top_menu_buttons():
         x_pos = 214
     else:
         x_pos = 258
+    # Couldn't get the position correct with a DropDown as first element, this is a workaround "invisible button"
+    menu_buttons["filler"] = UISurfaceImageButton(
+        ui_scale(pygame.Rect((x_pos, 60), (0, 0))),
+        "",
+        get_button_dict(ButtonStyles.MENU_LEFT, (82, 30)),
+        visible=False,
+    )
+    """ 
     menu_buttons["events"] = UISurfaceImageButton(
         ui_scale(pygame.Rect((x_pos, 60), (82, 30))),
         "screens.core.events",
@@ -129,6 +137,21 @@ def rebuild_top_menu_buttons():
         manager=MANAGER,
         object_id=pygame_gui.core.ObjectID("#events_button", "@buttonstyles_menu_left"),
         starting_height=6,
+    )
+    """
+    menu_buttons["events"] = UIDropDown(
+        relative_rect=pygame.Rect((0, 60), (82, 30)),
+        child_dimensions=(150, 30),
+        center_children=True,
+        parent_text="screens.core.events",
+        item_list=["screens.core.events", "screens.core.shared_tongues"],
+        parent_style=ButtonStyles.MENU_LEFT,
+        disable_selection=False,
+        visible=False,
+        manager=MANAGER,
+        starting_height=6,
+        anchors={"left": "left", "left_target": menu_buttons["filler"]},
+        open_on_hover=True,
     )
     if mode != "classic":
         menu_buttons["supplies"] = UIDropDown(

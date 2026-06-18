@@ -10,6 +10,7 @@ from .ClanScreen import ClanScreen
 from .ClanSettingsScreen import ClanSettingsScreen
 from .EventEditScreen import EventEditScreen
 from .EventsScreen import EventsScreen
+from .SharedTonguesScreen import SharedTonguesScreen
 from .FamilyTreeScreen import FamilyTreeScreen
 from .LeaderDenScreen import LeaderDenScreen
 from .ListScreen import ListScreen
@@ -78,6 +79,7 @@ def rebuild_all_screens():
         GameScreen.WARRIOR_DEN: WarriorDenScreen,
         GameScreen.LEADER_DEN: LeaderDenScreen,
         GameScreen.EVENTS: EventsScreen,
+        GameScreen.SHARED_TONGUES: SharedTonguesScreen,
         GameScreen.SETTINGS: SettingsScreen,
         GameScreen.CLAN_SETTINGS: ClanSettingsScreen,
         GameScreen.START: StartScreen,

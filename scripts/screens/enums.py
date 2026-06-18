@@ -19,10 +19,13 @@ class GameScreen(StrEnum):
     # screens accessed through top menu
     CAMP = "camp_screen"
     LIST = "list_screen"
-    EVENTS = "events_screen"
     PATROL = "patrol_screen"
     ALLEGIANCES = "allegiances_screen"
     CLAN_SETTINGS = "clan_settings_screen"
+
+    # event screens
+    EVENTS = "events_screen"
+    SHARED_TONGUES = "shared_tongues_screen"
 
     # den/work screens
     LEADER_DEN = "leader_den_screen"

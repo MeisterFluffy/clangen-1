@@ -64,7 +64,8 @@ class Screens:
         if self.name in (
             GameScreen.CAMP,
             GameScreen.LIST,
-            GameScreen.EVENTS,
+            GameScreen.EVENTS,            
+            GameScreen.SHARED_TONGUES,
         ):
             game.last_screen_forProfile = self.name
 
@@ -381,8 +382,23 @@ class Screens:
         This will fail if event.type != pygame_gui.UI_BUTTON_START_PRESS"""
 
         # VIEW EVENTS
-        if event.ui_element == Screens.menu_buttons["events"]:
+        if(
+            Screens.menu_buttons.get("events")
+            and event.ui_element
+            == Screens.menu_buttons["events"].child_button_dicts[
+                "screens.core.events"
+            ]
+        ):
             self.change_screen(GameScreen.EVENTS)
+        # VIEW SHARED TONGUES
+        elif(
+            Screens.menu_buttons.get("events")
+            and event.ui_element
+            == Screens.menu_buttons["events"].child_button_dicts[
+                "screens.core.shared_tongues"
+            ]
+        ):
+            self.change_screen(GameScreen.SHARED_TONGUES)
         # OPEN FRESHKILL
         elif (
             Screens.menu_buttons.get("supplies")
