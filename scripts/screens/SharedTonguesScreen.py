@@ -34,7 +34,6 @@ from ..game_structure.screen_settings import MANAGER
 from ..ui.generate_box import get_box, BoxStyles
 from ..ui.generate_button import get_button_dict, ButtonStyles
 from ..ui.icon import Icon
-from ..ui.windows.no_mediator import NoMediatorsWindow
 
 
 class SharedTonguesScreen(Screens):
@@ -44,7 +43,6 @@ class SharedTonguesScreen(Screens):
         self.back_button = None
         self.selected_cat0 = None
         self.selected_cat1 = None
-        self.mediators = deque()
         self.page = 1
         self.selected_cat_elements = {}
         self.allow_romance = False
@@ -55,7 +53,6 @@ class SharedTonguesScreen(Screens):
         self.event_display_containers = []
         self.event_display_boxes = []
         self.elements = {}
-        self.mediator_elements = {}
         self.tab_view = "all"
 
     def handle_event(self, event):
@@ -64,13 +61,6 @@ class SharedTonguesScreen(Screens):
 
             if event.ui_element == self.back_button:
                 self.change_screen(game.last_screen_forupdate)
-            # MEDIATOR ARROWS
-            elif event.ui_element == self.elements["last_mediator"]:
-                self.mediators.rotate()
-                self.update_mediator_info()
-            elif event.ui_element == self.elements["next_mediator"]:
-                self.mediators.rotate(-1)
-                self.update_mediator_info()
             # CAT LIST ARROWS
             elif event.ui_element == self.elements["next_page"]:
                 self.page += 1
@@ -103,33 +93,6 @@ class SharedTonguesScreen(Screens):
             elif event.ui_element == self.elements["remove_cat1"]:
                 self.selected_cat1 = None
                 self.update_selected_cats()
-            # IMPROVE BUTTON
-            elif event.ui_element == self.elements["improve_rel"]:
-                game.mediated.append([self.selected_cat0.ID, self.selected_cat1.ID])
-                game.patrolled.append(self.mediators[0].ID)
-                output = Cat.mediate_relationship(
-                    self.mediators[0],
-                    self.selected_cat0,
-                    self.selected_cat1,
-                    self.allow_romance,
-                )
-                self.elements["results"].set_text(output)
-                self.update_selected_cats()
-                self.update_mediator_info()
-            # SABOTAGE BUTTON
-            elif event.ui_element == self.elements["sabotage_rel"]:
-                game.mediated.append([self.selected_cat0.ID, self.selected_cat1.ID])
-                game.patrolled.append(self.mediators[0].ID)
-                output = Cat.mediate_relationship(
-                    self.mediators[0],
-                    self.selected_cat0,
-                    self.selected_cat1,
-                    self.allow_romance,
-                    sabotage=True,
-                )
-                self.elements["results"].set_text(output)
-                self.update_selected_cats()
-                self.update_mediator_info()
             # PICK RANDOM CATS
             elif event.ui_element == self.elements["random_cat0"]:
                 self.selected_cat0 = self.random_cat()
@@ -185,18 +148,6 @@ class SharedTonguesScreen(Screens):
     def screen_switches(self):
         super().screen_switches()
         self.show_mute_buttons()
-
-        # Gather the mediators:
-        self.mediators.clear()
-        for cat in Cat.all_cats_list:
-            if (
-                cat.status.rank.is_any_mediator_rank()
-                and cat.status.alive_in_player_clan
-            ):
-                if cat == switch_get_value(Switch.cat):
-                    self.mediators.appendleft(cat)
-                else:
-                    self.mediators.append(cat)
 
         interactable_elements = []
 
@@ -422,23 +373,6 @@ class SharedTonguesScreen(Screens):
             manager=MANAGER,
         )
 
-        # MEDIATOR ARROWS
-        self.elements["last_mediator"] = UISurfaceImageButton(
-            ui_scale(pygame.Rect((290, 150), (34, 34))),
-            Icon.ARROW_LEFT,
-            get_button_dict(ButtonStyles.ICON, (34, 34)),
-            object_id="@buttonstyles_icon",
-        )
-        self.elements["next_mediator"] = UISurfaceImageButton(
-            ui_scale(pygame.Rect((476, 150), (34, 34))),
-            Icon.ARROW_RIGHT,
-            get_button_dict(ButtonStyles.ICON, (34, 34)),
-            object_id="@buttonstyles_icon",
-        )
-        interactable_elements.extend(
-            [self.elements["last_mediator"], self.elements["next_mediator"]]
-        )
-
         # INDICATOR TEXT
         self.elements["select_cat0"] = pygame_gui.elements.UITextBox(
             "screens.mediation.select_cat0",
@@ -499,13 +433,6 @@ class SharedTonguesScreen(Screens):
 
         self.add_to_map(interactable_elements)
 
-        # UPDATE
-        if self.mediators:
-            self.update_mediator_info()
-        # TO-DO: Delete this as no mediator needed on the screen itself
-        else:
-            NoMediatorsWindow()
-
     def random_cat(self) -> Optional[Cat]:
         """
         Return a random cat to influence
@@ -521,107 +448,6 @@ class SharedTonguesScreen(Screens):
             return None
 
         return choice(random_list)
-
-    def update_mediator_info(self):
-        """
-        Update mediator elements and corresponding information
-        """
-        # kill and reset
-        for ele in self.mediator_elements:
-            self.mediator_elements[ele].kill()
-        self.mediator_elements.clear()
-
-        # grab the mediator to use
-        mediator = self.mediators[0]
-
-        # mediator can't be one of the selected cats
-        if mediator == self.selected_cat0:
-            self.selected_cat0 = None
-            if self.selected_cat1:  # move other cat over
-                self.selected_cat0 = self.selected_cat1
-                self.selected_cat1 = None
-            self.update_selected_cats()
-        if mediator == self.selected_cat1:
-            self.selected_cat1 = None
-            self.update_selected_cats()
-
-        # this is gonna be the "{name} can influence" yada yada above the mediator sprite
-        self.mediator_elements["mediator_status"] = pygame_gui.elements.UITextBox(
-            "",
-            ui_scale(pygame.Rect((0, 37), (229, 57))),
-            anchors={"centerx": "centerx"},
-            object_id=get_text_box_theme("#text_box_30_horizcenter_spacing_95"),
-            manager=MANAGER,
-        )
-
-        # container for all the other elements
-        self.mediator_elements["container"] = UIContainer(
-            ui_scale(pygame.Rect((0, 0), (150, 200))),
-            anchors={
-                "centerx": "centerx",
-                "top_target": self.mediator_elements["mediator_status"],
-            },
-            manager=MANAGER,
-        )
-        # cat sprite stuff
-        self.mediator_elements["platform"] = pygame_gui.elements.UIImage(
-            ui_scale(pygame.Rect((0, 0), (240, 210))),
-            pygame.transform.scale(
-                sprites.get_platform(
-                    biome=(
-                        game.clan.override_biome
-                        if game.clan.override_biome
-                        else game.clan.biome
-                    ),
-                    season=game.clan.current_season,
-                    show_nest=mediator.not_working(),
-                    group=mediator.status.group,
-                ),
-                ui_scale_dimensions((240, 210)),
-            ),
-            anchors={
-                "centerx": "centerx",
-                "top_target": self.mediator_elements["mediator_status"],
-            },
-            manager=MANAGER,
-            starting_height=-1,
-        )
-        self.mediator_elements["mediator_image"] = pygame_gui.elements.UIImage(
-            ui_scale(pygame.Rect((0, 0), (150, 150))),
-            pygame.transform.scale(mediator.sprite, ui_scale_dimensions((150, 150))),
-            container=self.mediator_elements["container"],
-        )
-
-        # cat description
-        text = (
-            i18n.t(f"cat.personality.{mediator.personality.trait}")
-            + "\n"
-            + mediator.experience_level_string
-        )
-        self.mediator_elements["details"] = pygame_gui.elements.UITextBox(
-            text,
-            ui_scale(pygame.Rect((0, 0), (150, -1))),
-            object_id=get_text_box_theme("#text_box_22_horizcenter_spacing_95"),
-            container=self.mediator_elements["container"],
-            anchors={"top_target": self.mediator_elements["mediator_image"]},
-            manager=MANAGER,
-            visible=not mediator.not_working(),  # doesn't appear if the cat isn't working
-        )
-        # disable buttons if mediator can't work
-        if mediator.not_working():
-            self.elements["improve_rel"].disable()
-            self.elements["sabotage_rel"].disable()
-        else:
-            self.elements["improve_rel"].enable()
-            self.elements["sabotage_rel"].enable()
-
-        # deactivate arrows if no other mediators
-        if len(self.mediators) <= 1:
-            self.elements["last_mediator"].disable()
-            self.elements["next_mediator"].disable()
-
-        self.update_mediator_status_and_buttons()
-        self.update_list_cats()
 
     def update_list_cats(self):
         """
@@ -658,8 +484,7 @@ class SharedTonguesScreen(Screens):
             self.all_cats_list = [
                 c
                 for c in Cat.all_cats_list
-                if (c.ID != self.mediators[0].ID)
-                and c.status.alive_in_player_clan
+                if ( c.status.alive_in_player_clan)
                 and c.ID in self.selected_cat0.relationships
                 and self.selected_cat0.relationships[c.ID].total_relationship_value > 0
             ]
@@ -667,8 +492,7 @@ class SharedTonguesScreen(Screens):
             self.all_cats_list = [
                 c
                 for c in Cat.all_cats_list
-                if (c.ID != self.mediators[0].ID)
-                and c.status.alive_in_player_clan
+                if (c.status.alive_in_player_clan)
                 and c.ID in self.selected_cat0.relationships
                 and self.selected_cat0.relationships[c.ID].total_relationship_value < 0
             ]
@@ -676,7 +500,7 @@ class SharedTonguesScreen(Screens):
             self.all_cats_list = [
                 i
                 for i in Cat.all_cats_list
-                if (i.ID != self.mediators[0].ID) and i.status.alive_in_player_clan
+                if (i.status.alive_in_player_clan)
             ]
 
     def update_selected_cats(self):
@@ -708,9 +532,6 @@ class SharedTonguesScreen(Screens):
         # draw each cat block
         self._draw_cat_block(self.selected_cat0, (50, 80))
         self._draw_cat_block(self.selected_cat1, (200, 80))
-
-        # update the mediator info
-        self.update_mediator_status_and_buttons()
 
     def _draw_cat_block(self, cat: Cat, starting_pos: tuple):
         """
@@ -931,55 +752,6 @@ class SharedTonguesScreen(Screens):
 
         return output
 
-    def update_mediator_status_and_buttons(self):
-        """
-        Updates the mediator status text and the states of improve/sabotage buttons
-        """
-        if not self.mediator_elements:
-            # early return, sometimes this func is called when no mediator elements are made
-            # in which case, we should just skip all of it
-            return
-
-        # finding mediator status string
-        invalid_mediator = False  # will be True if a mediator can't work
-        mediator_name = self.mediators[0].name
-        if self.mediators[0].not_working():
-            invalid_mediator = True
-            mediator_status = i18n.t(
-                "screens.mediation.mediator_cant_work", name=mediator_name
-            )
-        elif self.mediators[0].ID in game.patrolled:
-            invalid_mediator = True
-            mediator_status = i18n.t(
-                "screens.mediation.mediator_already_worked", name=mediator_name
-            )
-        else:
-            mediator_status = i18n.t(
-                "screens.mediation.mediator_ready_to_work", name=mediator_name
-            )
-
-        # check if influence pair has already been mediated
-        invalid_pair = False
-        if self.selected_cat0 and self.selected_cat1:
-            for x in game.mediated:
-                if self.selected_cat0.ID in x and self.selected_cat1.ID in x:
-                    invalid_pair = True
-                    mediator_status = i18n.t("screens.mediation.pair_already_mediated")
-                    break
-
-        # set status text
-        self.mediator_elements["mediator_status"].set_text(mediator_status)
-
-        # disable associated buttons if something is invalid
-        if (invalid_mediator or invalid_pair) or not (
-            self.selected_cat0 and self.selected_cat1
-        ):
-            self.elements["improve_rel"].disable()
-            self.elements["sabotage_rel"].disable()
-        else:
-            self.elements["improve_rel"].enable()
-            self.elements["sabotage_rel"].enable()
-
     def update_search_cats(self, search_text):
         """Run this function when the search text changes, or when the screen is switched to."""
         current_listed_cats = []
@@ -1002,12 +774,7 @@ class SharedTonguesScreen(Screens):
     def exit_screen(self):
         self.selected_cat0 = None
         self.selected_cat1 = None
-        self.mediators.clear()
         self.tab_view = "all"
-
-        for ele in self.mediator_elements:
-            self.mediator_elements[ele].kill()
-        self.mediator_elements = {}
 
         for ele in self.elements.values():
             ele.kill()
