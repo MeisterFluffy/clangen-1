@@ -3,12 +3,21 @@ from random import choice
 from typing import List, Optional
 
 import i18n
-import pygame.transform
+# only transform and Rect needed
+import pygame
 import pygame_gui.elements
 from pygame_gui.core import UIContainer
 
 from scripts.cat.cats import Cat
-from scripts.game_structure import image_cache, game
+from scripts.game_structure import image_cache, game, constants
+from scripts.game_structure.game.settings import game_setting_get
+from scripts.ui.scale import (
+    ui_scale_offset,
+    ui_scale_value,
+)
+from scripts.ui.elements.modified_scrolling_container import (
+    UIModifiedScrollingContainer,
+)
 from ..cat.sprites.load_sprites import sprites
 from ..ui.elements.cat_list_display import UICatListDisplay
 from ..ui.elements.checkbox import UICheckbox
@@ -41,6 +50,10 @@ class SharedTonguesScreen(Screens):
         self.allow_romance = False
         self.previous_search_text = ""
 
+        relation_events = ""
+        self.relations_display = None
+        self.event_display_containers = []
+        self.event_display_boxes = []
         self.elements = {}
         self.mediator_elements = {}
         self.tab_view = "all"
@@ -210,6 +223,40 @@ class SharedTonguesScreen(Screens):
             anchors={"centerx": "centerx"},
             manager=MANAGER,
         )
+
+        # RELATIONS CONTAINER
+        self.event_screen_container = pygame_gui.core.UIContainer(
+            ui_scale(pygame.Rect((-345, 25), (320, 591))),
+            anchors={"left": "right", "right": "right"},
+            starting_height=1,
+            manager=MANAGER,
+        )
+
+        self.relation_label = UISurfaceImageButton(
+            ui_scale(pygame.Rect((0, 0), (150, 30))),
+            "screens.events.relationships",
+            get_button_dict(ButtonStyles.ROUNDED_RECT, (150, 30)),
+            anchors={"centerx": "centerx"},
+            container=self.event_screen_container,
+        )
+
+        self.full_event_display_container = pygame_gui.core.UIContainer(
+            ui_scale(pygame.Rect((0, 55), (320, 536))),
+            starting_height=1,
+            container=self.event_screen_container,
+            manager=MANAGER,
+        )
+        self.events_frame = pygame_gui.elements.UIImage(
+            ui_scale(pygame.Rect((0, 0), (300, 536))),
+            get_box(BoxStyles.FRAME, (300, 536)),
+            starting_height=8,
+            container=self.full_event_display_container,
+            manager=MANAGER,
+        )
+
+        # DISPLAY ALL EVENTS
+        self.make_event_scrolling_container()
+        self.update_display_events_lists()
 
         # SEARCH BAR
         self.elements["search_bar_back"] = pygame_gui.elements.UIImage(
@@ -455,6 +502,7 @@ class SharedTonguesScreen(Screens):
         # UPDATE
         if self.mediators:
             self.update_mediator_info()
+        # TO-DO: Delete this as no mediator needed on the screen itself
         else:
             NoMediatorsWindow()
 
@@ -659,7 +707,7 @@ class SharedTonguesScreen(Screens):
 
         # draw each cat block
         self._draw_cat_block(self.selected_cat0, (50, 80))
-        self._draw_cat_block(self.selected_cat1, (550, 80))
+        self._draw_cat_block(self.selected_cat1, (200, 80))
 
         # update the mediator info
         self.update_mediator_status_and_buttons()
@@ -969,6 +1017,17 @@ class SharedTonguesScreen(Screens):
             self.selected_cat_elements[ele].kill()
         self.selected_cat_elements = {}
 
+        self.relations_display.kill() 
+        self.event_screen_container.kill()
+
+        for ele in self.event_display_containers:
+            ele.kill()
+        self.event_display_containers = []
+
+        for ele in self.event_display_boxes:
+            ele.kill()
+        self.event_display_boxes = []
+
         self.back_button.kill()
         del self.back_button
 
@@ -983,3 +1042,112 @@ class SharedTonguesScreen(Screens):
         if self.elements["search_bar"].get_text() != self.previous_search_text:
             self.update_search_cats(self.elements["search_bar"].get_text())
         self.previous_search_text = self.elements["search_bar"].get_text()
+
+    def make_event_scrolling_container(self):
+        """
+        kills and recreates the self.relations_display container
+        """
+        if self.relations_display:
+            self.relations_display.kill()
+
+        rect = pygame.Rect(
+            ui_scale_offset((5, 10)),
+            (
+                self.events_frame.rect[2] + ui_scale_value(13),
+                self.events_frame.rect[3] - ui_scale_value(19),
+            ),
+        )
+        self.relations_display = UIModifiedScrollingContainer(
+            rect,
+            container=self.full_event_display_container,
+            starting_height=1,
+            manager=MANAGER,
+            allow_scroll_y=True,
+        )
+        self.events_frame.join_focus_sets(self.relations_display)
+
+    def update_display_events_lists(self):
+        """
+        Categorize Relationship events from game.cur_events_list and display them
+        """
+
+        self.relation_event = [
+            x for x in game.cur_events_list if "relation" in x.types
+        ]
+
+        default_rect = pygame.Rect(
+            ui_scale_offset((5, 0)),
+            (
+                self.relations_display.get_relative_rect()[2]
+                - ui_scale_value(10)
+                - self.relations_display.scroll_bar_width,
+                ui_scale_value(300),
+            ),
+        )
+
+        anchor = {"top": "top"}
+
+        default_color = pygame.Color(
+            constants.CONFIG["theme"][
+                ("dark" if game_setting_get("dark mode") else "light")
+                + "_mode_background"
+            ]
+        )
+
+        alternate_color = (
+            pygame.Color(87, 76, 55)
+            if game_setting_get("dark mode")
+            else pygame.Color(167, 148, 111)
+        )
+
+        for i, event_object in enumerate(self.relation_event):
+            if not isinstance(event_object.text, str):
+                print(
+                    f"Incorrectly Formatted Event: {event_object.text}, {type(event_object)}"
+                )
+                self.relations_display.remove(event_object)
+                continue
+
+            display_element_container = pygame_gui.elements.UIPanel(
+                default_rect,
+                5,
+                MANAGER,
+                container=self.relations_display,
+                element_id="event_panel",
+                object_id="#dark" if game_setting_get("dark mode") else None,
+                margins={"top": 0, "bottom": 0, "left": 0, "right": 0},
+                anchors=anchor,
+            )
+
+            self.event_display_containers.append(display_element_container)
+
+            display_element_container.background_colour = (
+                alternate_color if i % 2 else default_color
+            )
+            display_element_container.rebuild()
+
+            # TEXT BOX
+            display_element_event = pygame_gui.elements.UITextBox(
+                event_object.text,
+                ui_scale(pygame.Rect((0, 0), (280, -1))),
+                object_id=get_text_box_theme("#text_box_30_horizleft"),
+                starting_height=1,
+                container=display_element_container,
+                manager=MANAGER,
+                text_kwargs=getattr(event_object, "cat_dict"),
+                anchors={"left": "left", "right": "right"},
+            )
+
+            self.event_display_boxes.append(display_element_event)
+
+            display_element_container.set_dimensions(
+                (
+                    default_rect[2],
+                    (
+                        display_element_event.get_relative_rect()[3]
+                    ),
+                )
+            )
+
+            anchor = {"top_target": display_element_container}
+
